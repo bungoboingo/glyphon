@@ -12,7 +12,8 @@ pub use cosmic_text::{
     self, fontdb, Action, Affinity, Attrs, AttrsList, AttrsOwned, Buffer, BufferLine, CacheKey,
     Color, Command, Cursor, Edit, Editor, Family, FamilyOwned, Font, FontSystem, LayoutCursor,
     LayoutGlyph, LayoutLine, LayoutRun, LayoutRunIter, Metrics, ShapeGlyph, ShapeLine, ShapeSpan,
-    ShapeWord, Stretch, Style, SubpixelBin, SwashCache, SwashContent, SwashImage, Weight, Wrap,
+    ShapeWord, Shaping, Stretch, Style, SubpixelBin, SwashCache, SwashContent, SwashImage, Weight,
+    Wrap,
 };
 
 use etagere::AllocId;
