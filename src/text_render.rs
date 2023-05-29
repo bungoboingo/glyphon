@@ -100,9 +100,8 @@ impl TextRenderer {
                     } else if atlas.color_atlas.glyph_cache.contains(&glyph.cache_key) {
                         atlas.color_atlas.promote(glyph.cache_key);
                     } else {
-                        let image = cache
-                            .get_image_uncached(font_system, glyph.cache_key)
-                            .unwrap();
+                        let Some(image) = cache
+                            .get_image_uncached(font_system, glyph.cache_key) else { continue };
 
                         let content_type = match image.content {
                             SwashContent::Color => ContentType::Color,
