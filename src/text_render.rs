@@ -144,7 +144,7 @@ impl TextRenderer {
                                 ImageDataLayout {
                                     offset: 0,
                                     bytes_per_row: Some(
-                                        width as u32 * inner.num_atlas_channels as u32,
+                                        width as u32 * inner.kind.num_channels() as u32,
                                     ),
                                     rows_per_image: None,
                                 },
