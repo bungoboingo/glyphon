@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0 OR Zlib"
 [dependencies]
 wgpu = "0.16"
 etagere = "0.2.6"
-cosmic-text = { git = "https://github.com/hecrj/cosmic-text.git", rev = "b85d6a4f2376f8a8a7dadc0f8bcb89d4db10a1c9" }
+cosmic-text = { git = "https://github.com/hecrj/cosmic-text.git", rev = "e8b10fd675832cb9c1cc9de30922beb4cf883876" }
 lru = "0.9"
 
 [dev-dependencies]
