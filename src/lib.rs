@@ -95,9 +95,11 @@ pub struct TextArea<'a> {
     /// The buffer containing the text to be rendered.
     pub buffer: &'a Buffer,
     /// The left edge of the buffer.
-    pub left: i32,
+    pub left: f32,
     /// The top edge of the buffer.
-    pub top: i32,
+    pub top: f32,
+    /// The scaling to apply to the buffer.
+    pub scale: f32,
     /// The visible bounds of the text area. This is used to clip the text and doesn't have to
     /// match the `left` and `top` values.
     pub bounds: TextBounds,

@@ -103,8 +103,9 @@ async fn run() {
                         },
                         [TextArea {
                             buffer: &buffer,
-                            left: 10,
-                            top: 10,
+                            left: 10.0,
+                            top: 10.0,
+                            scale: 1.0,
                             bounds: TextBounds {
                                 left: 0,
                                 top: 0,
