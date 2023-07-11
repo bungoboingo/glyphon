@@ -1,5 +1,5 @@
 use glyphon::{
-    Attrs, Buffer, Color, ColorMode, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache,
+    Attrs, Buffer, Color, ColorMode, Family, FontSystem, Metrics, TextureSize, Shaping, SwashCache,
     TextArea, TextAtlas, TextBounds, TextRenderer,
 };
 use wgpu::{
@@ -97,7 +97,7 @@ async fn run() {
                         &queue,
                         &mut font_system,
                         &mut atlas,
-                        Resolution {
+                        TextureSize {
                             width: config.width,
                             height: config.height,
                         },

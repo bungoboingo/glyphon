@@ -16,21 +16,21 @@ struct VertexOutput {
 };
 
 struct Params {
-    screen_resolution: vec2<u32>,
+    texture_size: vec2<u32>,
     _pad: vec2<u32>,
 };
 
 @group(0) @binding(0)
-var<uniform> params: Params;
-
-@group(0) @binding(1)
 var color_atlas_texture: texture_2d<f32>;
 
-@group(0) @binding(2)
+@group(0) @binding(1)
 var mask_atlas_texture: texture_2d<f32>;
 
-@group(0) @binding(3)
+@group(0) @binding(2)
 var atlas_sampler: sampler;
+
+@group(1) @binding(0)
+var<uniform> params: Params;
 
 @vertex
 fn vs_main(in_vert: VertexInput) -> VertexOutput {
@@ -62,7 +62,7 @@ fn vs_main(in_vert: VertexInput) -> VertexOutput {
     var vert_output: VertexOutput;
 
     vert_output.position = vec4<f32>(
-        2.0 * vec2<f32>(pos) / vec2<f32>(params.screen_resolution) - 1.0,
+        2.0 * vec2<f32>(pos) / vec2<f32>(params.texture_size) - 1.0,
         in_vert.depth,
         1.0,
     );

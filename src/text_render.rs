@@ -1,12 +1,13 @@
 use crate::{
-    FontSystem, GlyphDetails, GlyphToRender, GpuCacheStatus, Params, PrepareError, RenderError,
-    Resolution, SwashCache, SwashContent, TextArea, TextAtlas,
+    FontSystem, GlyphDetails, GlyphToRender, GpuCacheStatus, PrepareError, RenderError, SwashCache,
+    SwashContent, TextArea, TextAtlas, TextureSize,
 };
+use std::num::NonZeroU64;
 use std::{iter, mem::size_of, slice, sync::Arc};
 use wgpu::{
-    Buffer, BufferDescriptor, BufferUsages, DepthStencilState, Device, Extent3d, ImageCopyTexture,
-    ImageDataLayout, IndexFormat, MultisampleState, Origin3d, Queue, RenderPass, RenderPipeline,
-    TextureAspect, COPY_BUFFER_ALIGNMENT,
+    BindGroup, Buffer, BufferDescriptor, BufferUsages, DepthStencilState, Device, Extent3d,
+    ImageCopyTexture, ImageDataLayout, IndexFormat, MultisampleState, Origin3d, Queue, RenderPass,
+    RenderPipeline, TextureAspect, COPY_BUFFER_ALIGNMENT,
 };
 
 /// A text renderer that uses cached glyphs to render text into an existing render pass.
@@ -16,7 +17,9 @@ pub struct TextRenderer {
     index_buffer: Buffer,
     index_buffer_size: u64,
     vertices_to_render: u32,
-    screen_resolution: Resolution,
+    texture_size: TextureSize,
+    params: Buffer,
+    bind_group: wgpu::BindGroup,
     pipeline: Arc<RenderPipeline>,
 }
 
@@ -44,7 +47,38 @@ impl TextRenderer {
             mapped_at_creation: false,
         });
 
-        let pipeline = atlas.get_or_create_pipeline(device, multisample, depth_stencil);
+        let params = device.create_buffer(&BufferDescriptor {
+            label: Some("glyphon text render uniforms"),
+            size: size_of::<Params>() as u64,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("glyphon text render bind group layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: NonZeroU64::new(size_of::<Params>() as u64),
+                },
+                count: None,
+            }],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("glyphon text render bind group"),
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(params.as_entire_buffer_binding()),
+            }],
+        });
+
+        let pipeline =
+            atlas.get_or_create_pipeline(device, multisample, depth_stencil, &bind_group_layout);
 
         Self {
             vertex_buffer,
@@ -52,10 +86,12 @@ impl TextRenderer {
             index_buffer,
             index_buffer_size,
             vertices_to_render: 0,
-            screen_resolution: Resolution {
+            texture_size: TextureSize {
                 width: 0,
                 height: 0,
             },
+            params,
+            bind_group,
             pipeline,
         }
     }
@@ -67,23 +103,22 @@ impl TextRenderer {
         queue: &Queue,
         font_system: &mut FontSystem,
         atlas: &mut TextAtlas,
-        screen_resolution: Resolution,
+        texture_size: TextureSize,
         text_areas: impl Iterator<Item = TextArea<'a>>,
         cache: &mut SwashCache,
         mut metadata_to_depth: impl FnMut(usize) -> f32,
     ) -> Result<(), PrepareError> {
-        self.screen_resolution = screen_resolution;
+        if texture_size != self.texture_size {
+            let params = Params {
+                size: texture_size,
+                _pad: [0; 2],
+            };
 
-        let atlas_current_resolution = { atlas.params.screen_resolution };
-
-        if screen_resolution != atlas_current_resolution {
-            atlas.params.screen_resolution = screen_resolution;
-            queue.write_buffer(&atlas.params_buffer, 0, unsafe {
-                slice::from_raw_parts(
-                    &atlas.params as *const Params as *const u8,
-                    size_of::<Params>(),
-                )
+            queue.write_buffer(&self.params, 0, unsafe {
+                slice::from_raw_parts(&params as *const Params as *const u8, size_of::<Params>())
             });
+
+            self.texture_size = texture_size;
         }
 
         let mut glyph_vertices: Vec<GlyphToRender> = Vec::new();
@@ -209,8 +244,8 @@ impl TextRenderer {
 
                     let bounds_min_x = text_area.bounds.left.max(0);
                     let bounds_min_y = text_area.bounds.top.max(0);
-                    let bounds_max_x = text_area.bounds.right.min(screen_resolution.width as i32);
-                    let bounds_max_y = text_area.bounds.bottom.min(screen_resolution.height as i32);
+                    let bounds_max_x = text_area.bounds.right.min(texture_size.width as i32);
+                    let bounds_max_y = text_area.bounds.bottom.min(texture_size.height as i32);
 
                     // Starts beyond right edge or ends beyond left edge
                     let max_x = x + width;
@@ -351,7 +386,7 @@ impl TextRenderer {
         queue: &Queue,
         font_system: &mut FontSystem,
         atlas: &mut TextAtlas,
-        screen_resolution: Resolution,
+        texture_size: TextureSize,
         text_areas: impl Iterator<Item = TextArea<'a>>,
         cache: &mut SwashCache,
     ) -> Result<(), PrepareError> {
@@ -360,7 +395,7 @@ impl TextRenderer {
             queue,
             font_system,
             atlas,
-            screen_resolution,
+            texture_size,
             text_areas,
             cache,
             zero_depth,
@@ -379,6 +414,7 @@ impl TextRenderer {
 
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &atlas.bind_group, &[]);
+        pass.set_bind_group(1, &self.bind_group, &[]);
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
         pass.draw_indexed(0..self.vertices_to_render, 0, 0..1);
@@ -419,4 +455,11 @@ fn create_oversized_buffer(
 
 fn zero_depth(_: usize) -> f32 {
     0f32
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct Params {
+    size: TextureSize,
+    _pad: [u32; 2],
 }
